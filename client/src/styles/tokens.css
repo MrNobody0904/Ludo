@@ -1,0 +1,38 @@
+:root {
+  --color-primary: #eb3322;        /* main background */
+  --color-primary-strong: #d92b1d; /* hover / pressed */
+  --color-secondary: #f7f2e5;      /* text, primary button background */
+  --color-tertiary: #ffc737;       /* accent / highlights */
+  --color-accent-strong: #e0ad22;  /* accent hover */
+  --color-neutral: #374151;        /* borders, quiet surfaces */
+
+  --radius-sm: 4px;   /* buttons, inputs */
+  --radius-md: 8px;   /* cards */
+
+  --space-xs: 2px;
+  --space-sm: 10px;
+  --space-md: 34px;
+  --space-lg: 48px;
+  --space-xl: 136px;
+
+  --font-main: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Futura Passata', 'Poppins', -apple-system, sans-serif;
+
+  /* Board player colors */
+  --color-player-red: #eb3322;
+  --color-player-green: #10b981;
+  --color-player-yellow: #f59e0b;
+  --color-player-blue: #3b82f6;
+
+  /* Surface colors */
+  --board-bg: #f7f2e5;
+  --board-cell-border: #374151;
+}
+
+[data-theme="light"] {
+  --color-primary: #f7f2e5;
+  --color-primary-strong: #ebe4d3;
+  --color-secondary: #eb3322;
+  --color-neutral: #9ca3af;
+  --board-bg: #ffffff;
+}

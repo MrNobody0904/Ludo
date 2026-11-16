@@ -1,0 +1,39 @@
+# ============================================================
+# LUDO — Git Ignore Rules
+# ============================================================
+
+# --- Dependencies (never commit, install with npm install) ---
+node_modules/
+**/node_modules/
+
+# --- Build outputs ---
+client/dist/
+client/.vite/
+client/build/
+
+# --- Environment files (SECRETS — NEVER COMMIT) ---
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+
+# --- Compiled engine artifacts ---
+engine/*.exe
+engine/test_ludo.exe
+engine/ludo.js
+engine/ludo.wasm
+engine/*.o
+engine/*.a
+
+# --- OS / editor junk ---
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+.vscode/settings.json
+.idea/
+
+# --- Misc ---
+*.tgz
+*.zip
