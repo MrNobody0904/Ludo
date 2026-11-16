@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import socket from './socket';
+
+// Use environment variable — works locally AND on Render/Vercel
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
 import { runPageTransition } from './animations/pageTransition';
 
 import Landing from './pages/Landing';
@@ -139,7 +142,7 @@ export default function App() {
 
   // Action: Start Single Player
   const handleStartSinglePlayer = async ({ name, color, botCount, difficulty }) => {
-    const res = await fetch('http://localhost:4000/api/rooms', {
+    const res = await fetch(`${SERVER_URL}/api/rooms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -170,7 +173,7 @@ export default function App() {
 
   // Action: Create Multiplayer Room
   const handleCreateRoom = async ({ name, color }) => {
-    const res = await fetch('http://localhost:4000/api/rooms', {
+    const res = await fetch(`${SERVER_URL}/api/rooms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
