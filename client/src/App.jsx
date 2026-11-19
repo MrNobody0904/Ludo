@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import socket from './socket';
-
-// Use environment variable — works locally AND on Render/Vercel
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
 import { runPageTransition } from './animations/pageTransition';
+import socket from './socket';
 
 import Landing from './pages/Landing';
 import SingleSetup from './pages/SingleSetup';
@@ -11,6 +8,9 @@ import Multiplayer from './pages/Multiplayer';
 import Lobby from './pages/Lobby';
 import Game from './pages/Game';
 import Creator from './pages/Creator';
+
+// Server URL — set VITE_SERVER_URL in your .env or Render/Vercel env vars
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(() => {
@@ -83,6 +83,10 @@ export default function App() {
 
     const onGameStateUpdate = (state) => {
       setRoomState(state);
+      // Clear valid moves when it's no longer the move phase
+      if (state?.engineState?.phase !== 1) {
+        setValidMoves([]);
+      }
     };
 
     const onGameStarted = (data) => {
@@ -90,9 +94,9 @@ export default function App() {
     };
 
     const onDiceRolled = (data) => {
-      if (data.validMoves) {
-        setValidMoves(data.validMoves);
-      }
+      // Server bundles validMoves + gameState in dice_rolled to reduce round-trips
+      if (data.validMoves) setValidMoves(data.validMoves);
+      if (data.gameState) setRoomState(data.gameState);
     };
 
     const onChatMessage = (message) => {
@@ -117,17 +121,29 @@ export default function App() {
     socket.on('chat_message', onChatMessage);
     socket.on('error_message', onErrorMsg);
 
-    // Auto-reconnect on refresh if roomCode and playerId exist
+    // Auto-reconnect ONLY if we have both a saved room AND player ID
+    // AND the socket is connected (avoid firing on every render)
     const savedRoom = localStorage.getItem('ludo_room_code');
     const savedPlayerId = localStorage.getItem('ludo_player_id');
     const savedName = localStorage.getItem('ludo_player_name') || 'Player';
 
     if (savedRoom && savedPlayerId) {
-      socket.emit('join_room', {
-        roomCode: savedRoom,
-        playerName: savedName,
-        playerId: savedPlayerId
-      });
+      // Wait for socket to connect before emitting
+      if (socket.connected) {
+        socket.emit('join_room', {
+          roomCode: savedRoom,
+          playerName: savedName,
+          playerId: savedPlayerId
+        });
+      } else {
+        socket.once('connect', () => {
+          socket.emit('join_room', {
+            roomCode: savedRoom,
+            playerName: savedName,
+            playerId: savedPlayerId
+          });
+        });
+      }
     }
 
     return () => {
@@ -153,6 +169,7 @@ export default function App() {
         botDifficulty: difficulty
       })
     });
+    if (!res.ok) throw new Error('Failed to create game. Server error.');
     const data = await res.json();
     setCurrentPlayerId(data.playerId);
     localStorage.setItem('ludo_player_id', data.playerId);
@@ -182,6 +199,7 @@ export default function App() {
         isSinglePlayer: false
       })
     });
+    if (!res.ok) throw new Error('Failed to create room. Server error.');
     const data = await res.json();
     setCurrentPlayerId(data.playerId);
     localStorage.setItem('ludo_player_id', data.playerId);
@@ -258,6 +276,7 @@ export default function App() {
     localStorage.removeItem('ludo_player_id');
     setRoomState(null);
     setCurrentPlayerId(null);
+    setValidMoves([]);
     navigate('/');
   };
 

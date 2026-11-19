@@ -11,15 +11,55 @@ const PORT = process.env.PORT || 4000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 const app = express();
+
+// Parse JSON bodies
+app.use(express.json({ limit: '10kb' }));
+
+// CORS — allow all origins (tighten in production if needed)
 app.use(cors({ origin: '*' }));
-app.use(express.json());
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  next();
+});
+
+// Simple rate limiter for /api/rooms (prevent spam room creation)
+const roomCreationLog = new Map();
+function rateLimitRoomCreation(req, res, next) {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowMs = 60 * 1000; // 1 minute window
+  const maxRequests = 15;
+
+  const entry = roomCreationLog.get(ip) || { count: 0, start: now };
+  if (now - entry.start > windowMs) {
+    entry.count = 0;
+    entry.start = now;
+  }
+  entry.count++;
+  roomCreationLog.set(ip, entry);
+
+  if (entry.count > maxRequests) {
+    return res.status(429).json({ error: 'Too many rooms created. Wait a minute.' });
+  }
+  next();
+}
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  // Prefer WebSocket transport — faster, lower latency
+  transports: ['websocket', 'polling'],
+  // Tune ping for Render free tier (keeps connection alive)
+  pingTimeout: 20000,
+  pingInterval: 15000,
+  // Compress payloads
+  perMessageDeflate: true
 });
 
 // Map socketId -> { roomCode, playerId }
@@ -38,7 +78,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.post('/api/rooms', (req, res) => {
+app.post('/api/rooms', rateLimitRoomCreation, (req, res) => {
   const { hostName, hostColor, isSinglePlayer, botCount, botDifficulty } = req.body;
   const room = roomManager.createRoom(
     hostName,
@@ -339,15 +379,15 @@ io.on('connection', (socket) => {
 
     room.addMoveLog(`${player.name} rolled a ${dice}`);
 
+    // Send dice result + valid moves in ONE combined event (less round-trips)
     io.to(roomCode).emit('dice_rolled', {
       dice,
       player: player.seat,
       playerName: player.name,
       validMoves,
-      consecutiveSixes: updatedState.consecutive_sixes
+      consecutiveSixes: updatedState.consecutive_sixes,
+      gameState: room.getPublicState()   // ← bundled: avoids a second emit
     });
-
-    io.to(roomCode).emit('game_state_update', room.getPublicState());
 
     if (updatedState.phase === GAME_PHASE.WAITING_FOR_ROLL) {
       // Turn passed automatically due to no valid moves or 3 sixes
